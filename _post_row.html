@@ -1,0 +1,27 @@
+<li class="row">
+  <div class="thumb t-{{ p.type }}">
+    {% if p.cover_url %}<img src="{{ p.cover_url }}" alt="" loading="lazy">
+    {% elif p.first_is_video %}<video src="{{ p.first }}#t=0.5" preload="metadata" muted playsinline></video>
+    {% elif p.first %}<img src="{{ p.first }}" alt="" loading="lazy">{% endif %}
+    {% if p.type == 'carousel' %}<span class="count">{{ p.media_count }}</span>{% endif %}
+  </div>
+  <div class="info">
+    <div class="line1">
+      <time>{{ p.scheduled_at|local }}</time>
+      <strong>@{{ p.username }}</strong>
+      <span class="kind">{{ p.type|capitalize }}</span>
+      <span class="pill {{ p.status }}">{{ p.status|capitalize }}</span>
+    </div>
+    {% if p.caption %}<p class="cap">{{ p.caption|truncate(160) }}</p>{% endif %}
+    {% if p.permalink %}<a class="link" href="{{ p.permalink }}" target="_blank" rel="noopener">Open on Instagram</a>{% endif %}
+    {% if p.error %}<p class="err">{{ p.error }}</p>{% endif %}
+  </div>
+  <div class="acts">
+    {% if p.status in ('scheduled', 'failed') %}
+    <form method="post" action="{{ url_for('post_now', pid=p.id) }}"><button class="btn small">{{ 'Retry now' if p.status == 'failed' else 'Post now' }}</button></form>
+    {% endif %}
+    {% if p.status != 'publishing' %}
+    <form method="post" action="{{ url_for('post_delete', pid=p.id) }}" onsubmit="return confirm('Remove this post from Post Desk? Posts already on Instagram stay there.')"><button class="btn small ghost">Remove</button></form>
+    {% endif %}
+  </div>
+</li>

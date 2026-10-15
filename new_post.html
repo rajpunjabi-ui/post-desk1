@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="head">
+  <h1>New post</h1>
+  <p class="sub">Add one version per page, each with its own file and caption, so the same video isn't posted everywhere.</p>
+</section>
+{% if not accounts %}
+<div class="empty"><h2>No pages connected</h2><a class="btn primary" href="{{ url_for('accounts') }}">Connect pages</a></div>
+{% else %}
+<form method="post" enctype="multipart/form-data" id="postform" data-type="reel">
+  <fieldset class="types">
+    <legend>Post type</legend>
+    {% for t, label in [('reel','Reel'), ('image','Image'), ('carousel','Carousel'), ('story','Story')] %}
+    <label><input type="radio" name="type" value="{{ t }}" {% if loop.first %}checked{% endif %}><span>{{ label }}</span></label>
+    {% endfor %}
+  </fieldset>
+
+  <div id="variants"></div>
+  <input type="hidden" name="variant_count" id="vc" value="0">
+
+  <div class="formfoot">
+    <button type="button" class="btn ghost" id="add">Add another page</button>
+    <button class="btn primary" id="submit">Schedule posts</button>
+  </div>
+</form>
+
+<template id="tpl">
+  <section class="variant">
+    <div class="vhead"><h3>Version</h3><button type="button" class="link remove">Remove</button></div>
+    <div class="grid">
+      <label>Page
+        <select name="account___" required>
+          <option value="">Choose a page</option>
+          {% for a in accounts %}<option value="{{ a.id }}">@{{ a.username }}</option>{% endfor %}
+        </select></label>
+      <label>Post at
+        <input type="datetime-local" name="when___">
+        <small>Empty means post right away. Times are {{ tzname }}.</small></label>
+    </div>
+    <label><span class="files-label">Video file</span>
+      <input type="file" name="files___" accept="video/mp4,video/quicktime,image/jpeg,image/png,image/webp"></label>
+    <details><summary>Use a link instead of uploading</summary>
+      <label>Media links, one per line<textarea name="urls___" rows="2" placeholder="https://"></textarea></label></details>
+    <label class="only-reel">Cover image (optional)<input type="file" name="cover___" accept="image/jpeg,image/png,image/webp"></label>
+    <label class="no-story">Caption
+      <textarea name="caption___" rows="4" class="caption"></textarea>
+      <small class="tagcount" aria-live="polite"></small></label>
+  </section>
+</template>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  const form = document.getElementById('postform');
+  if (!form) return;
+  const tpl = document.getElementById('tpl'), box = document.getElementById('variants'),
+        vc = document.getElementById('vc');
+  const labels = {reel: 'Video file', image: 'Image file', carousel: 'Files (2 to 10, select several)', story: 'Image or video file'};
+  let n = 0;
+
+  function applyType() {
+    const t = form.querySelector('input[name=type]:checked').value;
+    form.dataset.type = t;
+    box.querySelectorAll('.files-label').forEach(el => el.textContent = labels[t]);
+    box.querySelectorAll('input[type=file][name^=files_]').forEach(el => el.multiple = (t === 'carousel'));
+  }
+
+  function renumber() {
+    box.querySelectorAll('.variant h3').forEach((h, k) => h.textContent = 'Version ' + (k + 1));
+  }
+
+  function add() {
+    const wrap = document.createElement('div');
+    wrap.innerHTML = tpl.innerHTML.replaceAll('___', '_' + n);
+    const v = wrap.firstElementChild;
+    box.appendChild(v);
+    n++; vc.value = n;
+    v.querySelector('.remove').onclick = () => { if (box.children.length > 1) { v.remove(); renumber(); } };
+    const cap = v.querySelector('.caption'), out = v.querySelector('.tagcount');
+    cap.addEventListener('input', () => {
+      const c = (cap.value.match(/#[\p{L}\p{N}_]+/gu) || []).length;
+      out.textContent = c ? c + ' hashtag' + (c > 1 ? 's' : '') + (c > 5 ? ', more than 5' : '') : '';
+      out.classList.toggle('over', c > 5);
+    });
+    applyType(); renumber();
+    v.querySelector('select').focus();
+  }
+
+  form.querySelectorAll('input[name=type]').forEach(r => r.addEventListener('change', applyType));
+  document.getElementById('add').onclick = add;
+  form.addEventListener('submit', () => {
+    const b = document.getElementById('submit');
+    b.disabled = true; b.textContent = 'Uploading…';
+  });
+  add();
+})();
+</script>
+{% endblock %}

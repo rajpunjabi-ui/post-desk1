@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="head"><h1>History</h1></section>
+<nav class="tabs">
+  {% for s, label in [('all','All'), ('posted','Posted'), ('failed','Failed'), ('scheduled','Scheduled')] %}
+  <a href="{{ url_for('history', status=s) }}" {% if status == s %}aria-current="page"{% endif %}>{{ label }}</a>
+  {% endfor %}
+</nav>
+{% if posts %}
+<ul class="queue">{% for p in posts %}{% include "_post_row.html" %}{% endfor %}</ul>
+{% else %}
+<div class="empty"><h2>No posts here yet</h2></div>
+{% endif %}
+{% endblock %}

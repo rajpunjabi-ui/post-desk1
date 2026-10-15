@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Post Desk{% endblock %}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+{% if session.get('auth') %}
+<header class="top">
+  <a class="brand" href="{{ url_for('dashboard') }}">Post Desk</a>
+  <nav>
+    <a href="{{ url_for('dashboard') }}" {% if request.endpoint == 'dashboard' %}aria-current="page"{% endif %}>Queue</a>
+    <a href="{{ url_for('history') }}" {% if request.endpoint == 'history' %}aria-current="page"{% endif %}>History</a>
+    <a href="{{ url_for('accounts') }}" {% if request.endpoint == 'accounts' %}aria-current="page"{% endif %}>Pages</a>
+    <a href="{{ url_for('import_csv') }}" {% if request.endpoint == 'import_csv' %}aria-current="page"{% endif %}>Import</a>
+  </nav>
+  <a class="btn primary" href="{{ url_for('new_post') }}">New post</a>
+</header>
+{% endif %}
+<main>
+  {% if warn_base_url and session.get('auth') %}
+  <p class="banner">PUBLIC_BASE_URL isn't set to an https address, so uploaded files can't reach Instagram. Set it to this site's public link (see README), or use media links instead of uploads.</p>
+  {% endif %}
+  {% with msgs = get_flashed_messages(with_categories=true) %}
+    {% for cat, m in msgs %}<p class="flash {{ cat }}" role="status">{{ m }}</p>{% endfor %}
+  {% endwith %}
+  {% block content %}{% endblock %}
+</main>
+{% block scripts %}{% endblock %}
+</body>
+</html>

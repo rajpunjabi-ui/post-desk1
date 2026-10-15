@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="login">
+  <h1>Post Desk</h1>
+  {% if no_password %}
+    <p class="err">Set ADMIN_PASSWORD in your environment settings, then restart the server.</p>
+  {% else %}
+  <form method="post">
+    <label>Password<input type="password" name="password" autofocus required></label>
+    <button class="btn primary wide">Log in</button>
+  </form>
+  {% endif %}
+</section>
+{% endblock %}

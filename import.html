@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="head"><h1>Import from a spreadsheet</h1>
+<p class="sub">Schedule many posts at once. Export your sheet as CSV with these columns.</p></section>
+<div class="panel">
+  <div class="scroll"><table>
+    <thead><tr><th>Column</th><th>What to put</th></tr></thead>
+    <tbody>
+      <tr><td>account</td><td>Instagram username, e.g. riseshotss</td></tr>
+      <tr><td>type</td><td>reel, image, carousel or story</td></tr>
+      <tr><td>media_urls</td><td>Public link to the file. For a carousel, separate links with |</td></tr>
+      <tr><td>caption</td><td>Caption text</td></tr>
+      <tr><td>cover_url</td><td>Optional reel cover image link</td></tr>
+      <tr><td>scheduled_at</td><td>YYYY-MM-DD HH:MM in {{ tzname }}. Leave empty to post now.</td></tr>
+    </tbody>
+  </table></div>
+  <form method="post" enctype="multipart/form-data" class="inline">
+    <input type="file" name="file" accept=".csv,text/csv" required>
+    <button class="btn primary">Import posts</button>
+  </form>
+  <a class="link" href="{{ url_for('static', filename='sample.csv') }}" download>Download a sample CSV</a>
+</div>
+{% endblock %}

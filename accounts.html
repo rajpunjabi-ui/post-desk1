@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="head">
+  <h1>Pages</h1>
+  <p class="sub">{{ accounts|length }} connected</p>
+</section>
+
+<div class="panel">
+  {% if oauth_ready %}
+    <a class="btn primary" href="{{ url_for('connect') }}">Connect an Instagram account</a>
+    <p class="hint">Log in with the Instagram account you want to add and allow access. Repeat for each account. Before adding the next one, log out of instagram.com in this browser so Instagram asks for a different login.</p>
+  {% else %}
+    <p class="hint">Add INSTAGRAM_APP_ID, INSTAGRAM_APP_SECRET and PUBLIC_BASE_URL to turn on the Connect button. Until then, paste a token below.</p>
+  {% endif %}
+  <details {% if not oauth_ready %}open{% endif %}>
+    <summary>Connect with an access token</summary>
+    <form method="post" action="{{ url_for('connect_token') }}">
+      <label>Access token from your Meta app (Instagram > API setup > Generate token)
+        <textarea name="token" rows="3" required></textarea></label>
+      <button class="btn">Add account</button>
+    </form>
+  </details>
+</div>
+
+{% if accounts %}
+<div class="toolbar"><a class="btn small ghost" href="{{ url_for('accounts', check=1) }}">Test all connections</a></div>
+<ul class="pages">
+  {% for a in accounts %}
+  <li class="page{% if not a.active %} off{% endif %}">
+    {% if a.picture %}<img src="{{ a.picture }}" alt="">{% else %}<span class="avatar">{{ a.username[:1]|upper }}</span>{% endif %}
+    <div class="pinfo">
+      <strong>@{{ a.username }}</strong>
+      <span>{{ a.page_name or 'Professional' }} account{% if not a.active %}, paused{% endif %}</span>
+      {% if a.days_left is not none and a.days_left < 7 %}<span class="err">Login expires in {{ a.days_left }} days. Click Connect and log in to this account again.</span>{% endif %}
+      {% if checks.get(a.id) %}<span class="{{ 'ok' if checks[a.id].ok else 'err' }}">{{ checks[a.id].msg }}</span>{% endif %}
+    </div>
+    <div class="acts">
+      <form method="post" action="{{ url_for('account_toggle', aid=a.id) }}"><button class="btn small ghost">{{ 'Pause' if a.active else 'Resume' }}</button></form>
+      <form method="post" action="{{ url_for('account_delete', aid=a.id) }}" onsubmit="return confirm('Disconnect @{{ a.username }}? Its scheduled posts will be removed.')"><button class="btn small ghost">Disconnect</button></form>
+    </div>
+  </li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% endblock %}

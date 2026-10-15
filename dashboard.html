@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="head">
+  <h1>Queue</h1>
+  <p class="sub">{{ stats.scheduled }} scheduled, {{ stats.today }} posted today{% if stats.failed %}, <a href="{{ url_for('history', status='failed') }}">{{ stats.failed }} failed</a>{% endif %}.</p>
+</section>
+{% if not accounts_count %}
+  <div class="empty">
+    <h2>Connect your Instagram pages</h2>
+    <p>Log in with each Instagram account once and Post Desk can publish to it.</p>
+    <a class="btn primary" href="{{ url_for('accounts') }}">Connect pages</a>
+  </div>
+{% elif not days %}
+  <div class="empty">
+    <h2>Nothing in the queue</h2>
+    <p>Add a post with a time, or import a spreadsheet of posts.</p>
+    <a class="btn primary" href="{{ url_for('new_post') }}">New post</a>
+  </div>
+{% else %}
+  {% for label, items in days %}
+  <section class="day{% if label == 'Overdue' %} overdue{% endif %}">
+    <h2>{{ label }} <span>{{ items|length }}</span></h2>
+    <ul class="queue">{% for p in items %}{% include "_post_row.html" %}{% endfor %}</ul>
+  </section>
+  {% endfor %}
+{% endif %}
+{% endblock %}
