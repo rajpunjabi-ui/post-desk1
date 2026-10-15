@@ -3,3 +3,4 @@ requests>=2.31
 python-dotenv>=1.0
 pillow>=10.0
 gunicorn>=22.0
+tzdata
