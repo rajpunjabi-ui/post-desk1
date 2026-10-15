@@ -16,6 +16,7 @@ from zoneinfo import ZoneInfo
 from dotenv import load_dotenv
 from flask import (Flask, abort, flash, redirect, render_template, request,
                    send_from_directory, session, url_for)
+from jinja2 import ChoiceLoader, FileSystemLoader
 from PIL import Image
 
 import instagram as ig
@@ -27,14 +28,35 @@ APP_SECRET = os.environ.get("INSTAGRAM_APP_SECRET", "")
 BASE_URL = os.environ.get("PUBLIC_BASE_URL", "").rstrip("/")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
 TZ_NAME = os.environ.get("TIMEZONE", "Asia/Kolkata")
-TZ = ZoneInfo(TZ_NAME)
+try:
+    TZ = ZoneInfo(TZ_NAME)
+except Exception:                                # missing timezone data on the server
+    TZ_NAME = "UTC"
+    TZ = timezone.utc
 DATA_DIR = os.environ.get("DATA_DIR", os.path.join(os.path.dirname(os.path.abspath(__file__)), "data"))
 MEDIA_DIR = os.path.join(DATA_DIR, "media")
 DB_PATH = os.path.join(DATA_DIR, "postdesk.db")
 MAX_ATTEMPTS = 3
 os.makedirs(MEDIA_DIR, exist_ok=True)
 
-app = Flask(__name__)
+HERE = os.path.dirname(os.path.abspath(__file__))
+app = Flask(__name__, static_folder=None)
+# Pages can live in templates/ or loose next to app.py (both work).
+app.jinja_loader = ChoiceLoader([FileSystemLoader(os.path.join(HERE, "templates")),
+                                 FileSystemLoader(HERE)])
+STATIC_FILES = {"style.css", "sample.csv"}
+
+
+def serve_static(filename):
+    if filename not in STATIC_FILES:
+        abort(404)
+    folder = os.path.join(HERE, "static")
+    if not os.path.exists(os.path.join(folder, filename)):
+        folder = HERE
+    return send_from_directory(folder, filename)
+
+
+app.add_url_rule("/static/<path:filename>", endpoint="static", view_func=serve_static)
 app.secret_key = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
 app.config.update(MAX_CONTENT_LENGTH=1024 * 1024 * 1024,   # 1 GB per request
                   SESSION_COOKIE_SAMESITE="Lax",
