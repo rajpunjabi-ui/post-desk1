@@ -1,18 +1,31 @@
-"""Instagram Graph API helpers: login, account discovery, publishing."""
+"""Instagram API with Instagram Login: connect accounts and publish (no Facebook Page needed)."""
 import time
 from urllib.parse import urlencode
 
 import requests
 
-GRAPH_VERSION = "v21.0"   # bump when Meta deprecates this version
-BASE = f"https://graph.facebook.com/{GRAPH_VERSION}"
+GRAPH_VERSION = "v25.0"   # bump when Meta deprecates this version
+BASE = f"https://graph.instagram.com/{GRAPH_VERSION}"
 VIDEO_EXT = (".mp4", ".mov")
-SCOPES = ("instagram_basic,instagram_content_publish,pages_show_list,"
-          "pages_read_engagement,business_management")
+SCOPES = "instagram_business_basic,instagram_business_content_publish"
 
 
 class GraphError(Exception):
     pass
+
+
+def _json(r):
+    try:
+        return r.json()
+    except ValueError:
+        return {"error_message": r.text}
+
+
+def _errmsg(d):
+    e = d.get("error")
+    if isinstance(e, dict):
+        return e.get("error_user_msg") or e.get("message") or str(e)
+    return d.get("error_message") or str(e or d)
 
 
 def api(method, path, token, **params):
@@ -29,11 +42,11 @@ def api(method, path, token, **params):
             last = str(e)
             time.sleep(5 * (attempt + 1))
             continue
-        data = r.json() if r.content else {}
+        data = _json(r)
         if r.ok and "error" not in data:
             return data
-        err = data.get("error", {})
-        last = f"{err.get('error_user_msg') or err.get('message') or r.text} (code {err.get('code')})"
+        err = data.get("error") if isinstance(data.get("error"), dict) else {}
+        last = f"{_errmsg(data)} (code {err.get('code')})"
         if err.get("is_transient") or r.status_code >= 500:
             time.sleep(5 * (attempt + 1))
             continue
@@ -41,57 +54,50 @@ def api(method, path, token, **params):
     raise GraphError(f"Instagram did not respond: {last}")
 
 
-# ------------------------------------------------------------- login
-def login_url(app_id, redirect_uri, state, config_id=None):
-    p = {"client_id": app_id, "redirect_uri": redirect_uri,
-         "state": state, "response_type": "code"}
-    if config_id:
-        p["config_id"] = config_id          # Facebook Login for Business
-    else:
-        p["scope"] = SCOPES
-    return f"https://www.facebook.com/{GRAPH_VERSION}/dialog/oauth?{urlencode(p)}"
+# ------------------------------------------------------------- Instagram login
+def login_url(app_id, redirect_uri, state):
+    return "https://www.instagram.com/oauth/authorize?" + urlencode({
+        "client_id": app_id, "redirect_uri": redirect_uri, "response_type": "code",
+        "scope": SCOPES, "state": state, "force_reauth": "true"})
 
 
 def code_to_token(app_id, app_secret, redirect_uri, code):
-    d = requests.get(f"{BASE}/oauth/access_token", params={
+    d = _json(requests.post("https://api.instagram.com/oauth/access_token", data={
         "client_id": app_id, "client_secret": app_secret,
-        "redirect_uri": redirect_uri, "code": code}, timeout=60).json()
+        "grant_type": "authorization_code", "redirect_uri": redirect_uri,
+        "code": code.split("#")[0]}, timeout=60))
+    if isinstance(d.get("data"), list) and d["data"]:
+        d = d["data"][0]
     if "access_token" not in d:
-        raise GraphError(d.get("error", {}).get("message", str(d)))
+        raise GraphError(_errmsg(d))
     return d["access_token"]
 
 
-def long_lived(app_id, app_secret, token):
-    d = requests.get(f"{BASE}/oauth/access_token", params={
-        "grant_type": "fb_exchange_token", "client_id": app_id,
-        "client_secret": app_secret, "fb_exchange_token": token}, timeout=60).json()
+def long_lived(app_secret, token):
+    """Short-lived (1 hour) token -> long-lived (60 days). Returns (token, seconds)."""
+    d = _json(requests.get("https://graph.instagram.com/access_token", params={
+        "grant_type": "ig_exchange_token", "client_secret": app_secret,
+        "access_token": token}, timeout=60))
     if "access_token" not in d:
-        raise GraphError(d.get("error", {}).get("message", str(d)))
-    return d["access_token"]
+        raise GraphError(_errmsg(d))
+    return d["access_token"], int(d.get("expires_in", 5184000))
 
 
-def list_ig_accounts(user_token):
-    """Every Instagram account linked to the user's Facebook Pages."""
-    out, skipped = [], []
-    data = api("GET", "me/accounts", user_token, limit=100,
-               fields="name,access_token,instagram_business_account"
-                      "{id,username,profile_picture_url}")
-    while True:
-        for page in data.get("data", []):
-            igb = page.get("instagram_business_account")
-            if not igb:
-                skipped.append(page["name"])
-                continue
-            out.append({"ig_user_id": igb["id"],
-                        "username": igb.get("username") or page["name"],
-                        "picture": igb.get("profile_picture_url", ""),
-                        "page_name": page["name"],
-                        "access_token": page["access_token"]})
-        nxt = data.get("paging", {}).get("next")
-        if not nxt:
-            break
-        data = requests.get(nxt, timeout=60).json()
-    return out, skipped
+def refresh(token):
+    """Extend a long-lived token by another 60 days. Returns (token, seconds)."""
+    d = _json(requests.get("https://graph.instagram.com/refresh_access_token", params={
+        "grant_type": "ig_refresh_token", "access_token": token}, timeout=60))
+    if "access_token" not in d:
+        raise GraphError(_errmsg(d))
+    return d["access_token"], int(d.get("expires_in", 5184000))
+
+
+def account_info(token):
+    d = api("GET", "me", token, fields="user_id,username,profile_picture_url,account_type")
+    return {"ig_user_id": str(d.get("user_id") or d["id"]),
+            "username": d.get("username", ""),
+            "picture": d.get("profile_picture_url", ""),
+            "account_type": d.get("account_type", "")}
 
 
 def quota(ig_user_id, token):
